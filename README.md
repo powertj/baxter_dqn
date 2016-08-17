@@ -1,10 +1,10 @@
 # baxter_dqn
 
 ## Requirements
-ROS indigo w gazebo2
-baxter simulator installation
-Torch7
-torch-ros
+- ROS indigo w gazebo2
+- baxter simulator installation
+- Torch7
+- torch-ros
 
 ## Use
 Place baxter_dqn_ros package in ros workspace alongside baxter simulator installation
