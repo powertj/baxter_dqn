@@ -6,15 +6,25 @@
 - Torch7
 - torch-ros
 
-## Use
+## Installation
 Place baxter_dqn_ros package in ros workspace alongside baxter simulator installation
-
+While in workspace, rebuild by running
+```
+source ./devel./setup.bash
+catkin_make
+catkin_make install
+```
+## Use
 Launch baxter_gazebo with 
 ```
 ./baxter.sh sim
 roslaunch baxter_gazebo baxter_world.launch
 ```
-Once loaded run ` rosrun baxter_dqn_ros torch_control.py`
+Once loaded, in a new terminal run
+```
+source ./devel/setup.bash
+rosrun baxter_dqn_ros torch_control.py
+```
 torch_control subscribes to commands from Torch, and passes a resized 60x60 RGB image and terminal status back in return. 
 
 Either a sphere, cylinder or box is spawned at a random orientation at start and reset.
