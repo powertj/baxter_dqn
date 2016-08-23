@@ -19,7 +19,7 @@ while true do
 		demo:sendMessage("reset")
 		demo:waitForResponse("reset")
 		end
-	print("Ready for command")
+	print("Ready for command: r: right turn, l: left turn, p: pickup object")
 	local cmd = io.read()
 	if (cmd == e) then
 		demo:_close()
