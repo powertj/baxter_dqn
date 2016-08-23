@@ -1,5 +1,5 @@
 require 'image'
-local demo = require "chatterListener"
+local demo = require "Baxter"
 
 demo:_init()
 
