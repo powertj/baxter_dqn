@@ -7,7 +7,8 @@
 - torch-ros
 
 ## Installation
-Place baxter_dqn_ros package in ros workspace alongside baxter simulator installation
+Place baxter_dqn_ros package in ros workspace alongside baxter simulator installation.
+
 While in workspace, rebuild by running
 ```
 source ./devel./setup.bash
