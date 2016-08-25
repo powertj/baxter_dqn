@@ -24,10 +24,10 @@ function Baxter:_init(opts)
 
 	--setup state variables
 	self.img_size = 60
-	self.screen = torch.ByteTensor(3,self.img_size,self.img_size):zero()
-	self.data = torch.ByteTensor(10800,1):zero()
+	self.screen = torch.ByteTensor(4,self.img_size,self.img_size):zero()
+	self.data = torch.ByteTensor(14400,1):zero()
 	self.raw_msg = self.data
-	self.task = 0
+	self.task = false
 
 	--setup ros node and spinner (processes queued send and receive topics)
 	self.spinner = ros.AsyncSpinner()
@@ -109,23 +109,25 @@ function Baxter:waitForResponse(message)
 end
 
 function Baxter:msgToImg()
-		-- Sort message data - pixel values come through in order r[1], g[1], b[1], r[2], b[2], g[2], .. etc
-	for i = 1, 10800 do
-		if i%3==1 then
-			self.data[(i+2)/3] = self.raw_msg[i]
-		elseif i%3==2 then
-			self.data[3600 + (i+2)/3] = self.raw_msg[i]
+		-- Sort message data - pixel values come through in order r[1], g[1], b[1], a[1], r[2], b[2], g[2], .. etc with the alpha channel representing motor angle information
+	for i = 1, 14400 do
+		if i%4==1 then
+			self.data[(i+3)/4] = self.raw_msg[i]
+		elseif i%4==2 then
+			self.data[3600 + (i+2)/4] = self.raw_msg[i]
+		elseif i%4 == 3 then
+			self.data[7200 + (i+1)/4] = self.raw_msg[i]
 		else
-			self.data[7200 + (i+2)/3] = self.raw_msg[i]
+			self.data[10800 + i/4] = self.raw_msg[i]
 		end
 	end
-
-	self.screen = torch.reshape(self.data,3,self.img_size,self.img_size)
+	print(self.data)
+	self.screen = torch.reshape(self.data,4,self.img_size,self.img_size)
 end
 
 -- 1 state returned, of type 'int', of dimensionality 1 x self.img_size x self.img_size, between 0 and 1
 function Baxter:getStateSpec()
-	return {'int', {3, self.img_size, self.img_size}, {0, 1}}
+	return {'int', {4, self.img_size, self.img_size}, {0, 1}}
 end
 
 -- 1 action required, of type 'int', of dimensionality 1, between 0 and 2

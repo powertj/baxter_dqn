@@ -23,8 +23,8 @@ function Baxter:_init(opts)
 
 	--setup state variables
 	self.img_size = 60
-	self.screen = torch.ByteTensor(3,self.img_size,self.img_size):zero()
-	self.data = torch.ByteTensor(10800,1):zero()
+	self.screen = torch.ByteTensor(4,self.img_size,self.img_size):zero()
+	self.data = torch.ByteTensor(14400,1):zero()
 	self.raw_msg = self.data
 	self.task = false
 
@@ -120,18 +120,20 @@ function Baxter:waitForResponse(message)
 end
 
 function Baxter:msgToImg()
-		-- Sort message data - pixel values come through in order r[1], g[1], b[1], r[2], b[2], g[2], .. etc
-	for i = 1, 10800 do
-		if i%3==1 then
-			self.data[(i+2)/3] = self.raw_msg[i]
-		elseif i%3==2 then
-			self.data[3600 + (i+2)/3] = self.raw_msg[i]
+		-- Sort message data - pixel values come through in order r[1], g[1], b[1], a[1], r[2], b[2], g[2], .. etc with the alpha channel representing motor angle information
+	for i = 1, 14400 do
+		if i%4==1 then
+			self.data[(i+3)/4] = self.raw_msg[i]
+		elseif i%4==2 then
+			self.data[3600 + (i+2)/4] = self.raw_msg[i]
+		elseif i%4 == 3 then
+			self.data[7200 + (i+1)/4] = self.raw_msg[i]
 		else
-			self.data[7200 + (i+2)/3] = self.raw_msg[i]
+			self.data[10800 + i/4] = self.raw_msg[i]
 		end
 	end
-
-	self.screen = torch.reshape(self.data,3,self.img_size,self.img_size)
+	print(self.data)
+	self.screen = torch.reshape(self.data,4,self.img_size,self.img_size)
 end
 
 	

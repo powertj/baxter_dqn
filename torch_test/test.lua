@@ -12,14 +12,19 @@ while true do
 	sleep(1)
 	ros.spinOnce()
 	demo:msgToImg()
-	image.display(demo.screen)
+	-- first three channels of image contain rgb information
+	-- 4th channel contains motor angle information
+	imgd = demo.screen[{{1,3},{},{}}]
+	image.display(imgd)
+	-- wrist motor position (normalised to 255)
+	print(demo.screen[4][1][1])
 	print(demo.task)
 	if (demo.task == 1) then
 		print("Task Completed")
 		demo:sendMessage("reset")
 		demo:waitForResponse("reset")
 		end
-	print("Ready for command: r: right turn, l: left turn, p: pickup object")
+	print("Ready for command")
 	local cmd = io.read()
 	if (cmd == e) then
 		demo:_close()
