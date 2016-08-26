@@ -24,9 +24,9 @@ function Baxter:_init(opts)
 
 	--setup state variables
 	self.img_size = 60
-	self.screen = torch.ByteTensor(4,self.img_size,self.img_size):zero()
-	self.data = torch.ByteTensor(14400,1):zero()
-	self.raw_msg = self.data
+	self.screen = torch.FloatTensor(4,self.img_size,self.img_size):zero()
+	self.reordered_Data = torch.FloatTensor(14400)
+	self.raw_msg = self.reordered_Data
 	self.task = false
 
 	--setup ros node and spinner (processes queued send and receive topics)
@@ -112,17 +112,17 @@ function Baxter:msgToImg()
 		-- Sort message data - pixel values come through in order r[1], g[1], b[1], a[1], r[2], b[2], g[2], .. etc with the alpha channel representing motor angle information
 	for i = 1, 14400 do
 		if i%4==1 then
-			self.data[(i+3)/4] = self.raw_msg[i]
+			self.reordered_Data[(i+3)/4] = self.raw_msg[i]/255
 		elseif i%4==2 then
-			self.data[3600 + (i+2)/4] = self.raw_msg[i]
+			self.reordered_Data[3600 + (i+2)/4] = self.raw_msg[i]/255
 		elseif i%4 == 3 then
-			self.data[7200 + (i+1)/4] = self.raw_msg[i]
+			self.reordered_Data[7200 + (i+1)/4] = self.raw_msg[i]/255
 		else
-			self.data[10800 + i/4] = self.raw_msg[i]
+			self.reordered_Data[10800 + i/4] = self.raw_msg[i]/255
 		end
 	end
-	print(self.data)
-	self.screen = torch.reshape(self.data,4,self.img_size,self.img_size)
+	self.screen = torch.reshape(self.reordered_Data,4,self.img_size,self.img_size)
+	--self.screen = self.screen[{{1,3},{},{}}]
 end
 
 -- 1 state returned, of type 'int', of dimensionality 1 x self.img_size x self.img_size, between 0 and 1
@@ -154,12 +154,14 @@ function Baxter:start()
 	ros.spinOnce()
 	self:msgToImg()
 -- Return observation
+	print("start finished")
 	return self.screen
 end
 
 -- Steps in a game
 function Baxter:step(action)
 	-- Reward is 0 by default
+	print("step started")
 	local reward = 0
     local terminal = false
 	-- Move player - 0 and 1 correspond to right and left rotations 
@@ -168,14 +170,14 @@ function Baxter:step(action)
 	-- This is because unsuccesful attempts often knock the block away
 	-- making it impossible to pickup again
 	if action == 0 then
-		demo:sendMessage('r')
-		demo:waitForResponse('r')
+		self:sendMessage('r')
+		self:waitForResponse('r')
 	elseif action == 1 then
-		demo:sendMessage('l')
-		demo:waitForResponse('l')
+		self:sendMessage('l')
+		self:waitForResponse('l')
 	elseif action == 2 then
-		demo:sendMessage('p')
-		demo:waitForResponse('p')
+		self:sendMessage('p')
+		self:waitForResponse('p')
 		terminal = true
 	end
 	
@@ -187,7 +189,7 @@ function Baxter:step(action)
 	if self.task == 1 then	
   		reward = 1
 	end
-	return reward, screen, terminal
+	return reward, self.screen, terminal
 end
 
 -- Returns (RGB) display of screen
