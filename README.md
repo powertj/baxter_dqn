@@ -38,7 +38,7 @@ source ./devel/setup.bash
 rosrun baxter_dqn_ros torch_control.py
 ```
 
-Navigate to the Atari directory and run `qlua main.lua`
+Navigate to the Atari directory and run `th main.lua -env BaxterEnv -modelBody BaxterNet - -doubleQ false -duel false -bootstraps 0 -PALpha 0 `
 
 ## Known issues
 The origin of the objects is not always at their centre. This results in some variation in pose with random orientation. This means that it is sometimes not possible to pick up the object - this should be solved when increasing number of actions.
