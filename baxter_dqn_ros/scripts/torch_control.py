@@ -44,9 +44,12 @@ def load_gazebo_models():
 	
     # Randomise object type and orientation
 	object_angle= random.uniform(0,math.pi)
+	object_x_factor = random.uniform(-0.1,0.1)
+	object_y_factor = random.uniform(-0.1,0.1)
 	object_type = random.randint(0,2)
     
-	object_pose=Pose(position=Point(x=0.625, y=0.7975, z=0.8),orientation = \
+	object_pose=Pose(position=Point(x=0.625+object_x_factor, y=0.7975+object_y_factor,
+			 					z=0.8),orientation = \
    						Quaternion(x=0.0,y=0.0,z=math.sin(object_angle/2),w= \
    						math.cos(object_angle/2)))
 	object_reference_frame="world"
@@ -141,12 +144,16 @@ class BaxterManipulator(object):
                            0.0, 1.26 - math.pi/4.0, 0.0]))
 		self._left_positions = dict(zip(self._left_arm.joint_names(),
                           [0.0, -0.55, 0.0, 0.75, 0.0, math.pi/2.0 - 0.2, 0.0]))
-                         
+                          
+		self._torques = dict(zip(self._left_arm.joint_names(),[0.0,0.0,0.0,0.0,0.0,0.0,0.0]))
+    
 		self._right_arm.move_to_joint_positions(self._right_positions)
 		self._left_arm.move_to_joint_positions(self._left_positions)
 		
 		# Task completion flag
 		self._task_complete = 0
+		
+		self._left_arm.set_command_timeout(0.5)
 		
 		
 	def _reset_control_modes(self):
@@ -178,18 +185,22 @@ class BaxterManipulator(object):
 		
 	#Recieve image from gazebo - resizes to 60 by 60
 	def img_callback(self,data):
-  		cv_image = self.bridge.imgmsg_to_cv2(data, "rgba8")
-		cv_image = cv2.resize(cv_image, (60, 60))
-		cv_image[:,:,3] = 0;
+		self.cv_image = self.bridge.imgmsg_to_cv2(data, "rgba8")
+		self.cv_image = cv2.resize(self.cv_image, (60, 60))
+		self.cv_image[:,:,3] = 0;
 	
 		# Add motor angle information to alpha channel of image
-		wrist_angle = self._left_arm.joint_angle("left_w2")
-		wrist_angle = int(255*wrist_angle/(2.0*math.pi))
-		cv_image[0,0,3]=wrist_angle
-		# Create image message
-		self.img_msg = self.bridge.cv2_to_imgmsg(cv_image, "rgba8")
-		self.img_msg.header.frame_id = str(self._task_complete)
-	
+		wrist_angle 		= self._left_arm.joint_angle("left_w2")
+		shoulder_angle 	= self._left_arm.joint_angle("left_s0")
+		elbow_angle 		= self._left_arm.joint_angle("left_e1")
+		# remove discontinuities by finding cosines and sines of angles
+		self.cv_image[0,0,3] = int(255*math.cos(wrist_angle)/(2.0*math.pi))
+		self.cv_image[0,1,3] = int(255*math.sin(wrist_angle)/(2.0*math.pi))
+		self.cv_image[0,2,3] = int(255*math.cos(elbow_angle)/(2.0*math.pi))
+		self.cv_image[0,3,3] = int(255*math.sin(elbow_angle)/(2.0*math.pi))
+		self.cv_image[0,4,3] = int(255*math.cos(shoulder_angle)/(2.0*math.pi))
+		self.cv_image[0,5,3] = int(255*math.sin(shoulder_angle)/(2.0*math.pi))
+		
   	# Recieve object pose information - used to determine whether task has been completed		
 	def object_pose_callback(self,data):
 		if 'object' in data.name:
@@ -206,17 +217,39 @@ class BaxterManipulator(object):
 		rospy.spin()
 
 	def action(self):
-		if self.cmd == 'r':
+		if self.cmd == '1':
 			self._left_positions["left_w2"] += 0.2
 			self._pub_rate.publish(self._rate)
-			self._left_arm.move_to_joint_positions(self._left_positions)
-		elif self.cmd == 'l':
+			self._left_arm.set_joint_positions(self._left_positions)
+		elif self.cmd == '2':
 			self._left_positions["left_w2"] -= 0.2
 			self._pub_rate.publish(self._rate)
-			self._left_arm.move_to_joint_positions(self._left_positions)
+			self._left_arm.set_joint_positions(self._left_positions)
 			# Pickup object by lowering by predetermined amount to grasp and lift object - 
 			# move_vertical function is found in IK.py file
-		elif self.cmd == 'p':
+		elif self.cmd == '3':
+			self._left_positions["left_s0"] -= 0.025
+			self._pub_rate.publish(self._rate)
+			self._left_arm.set_joint_positions(self._left_positions)
+		elif self.cmd == '4':
+			self._left_positions["left_s0"] += 0.025
+			self._pub_rate.publish(self._rate)
+			self._left_arm.set_joint_positions(self._left_positions)
+		elif self.cmd == '5':
+			self._left_positions["left_e1"] -= 0.05
+			self._left_positions["left_s1"] += 0.05
+			self._left_positions["left_w1"] = math.pi/2.0 - self._left_positions["left_e1"] -  \
+												self._left_positions["left_s1"]
+			self._pub_rate.publish(self._rate)
+			self._left_arm.set_joint_positions(self._left_positions)
+		elif self.cmd == '6':
+			self._left_positions["left_e1"] += 0.05
+			self._left_positions["left_s1"] -= 0.05
+			self._left_positions["left_w1"] = math.pi/2.0 - self._left_positions["left_e1"] -  \
+														self._left_positions["left_s1"]
+			self._pub_rate.publish(self._rate)
+			self._left_arm.set_joint_positions(self._left_positions)
+		elif self.cmd == '0':
 			self._left_positions = move_vertical(self._left_positions,'d')
 			self._pub_rate.publish(self._rate)
 			self._left_arm.move_to_joint_positions(self._left_positions)
@@ -238,15 +271,17 @@ class BaxterManipulator(object):
 					self.object_position_y) < 0.05)  & (abs(self.end_z - \
  					self.object_position_z) < 0.1):
 				self._task_complete = 1
-				# Places task complete flag in header of image 
-				self.img_msg.header.frame_id = str(self._task_complete)
+
 		# Reset command - waits to be told by torch to reset to ensure torch has recieved terminal status
 		elif self.cmd == 'reset':
-			print("resetting")
+		#	print("resetting")
 			delete_gazebo_models()
 			load_gazebo_models()
 			self._reset()
 		# Publish image with terminal in header
+		# Create image message
+		self.img_msg = self.bridge.cv2_to_imgmsg(self.cv_image, "rgba8")
+		self.img_msg.header.frame_id = str(self._task_complete)
 		self.image_pub.publish(self.img_msg)
 		
 		

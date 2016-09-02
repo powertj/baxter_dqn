@@ -17,18 +17,21 @@ def move_vertical(positions, direction):
 	
 	# Change y coordinate
 	if direction == 'd':
-		y +=0.2
+		y = 0.2065
 	elif direction == 'u':
-		y -=0.2
+		y = 0.0
+
 
 	#Recalculate and set desired s1 and e1 angles
 
 	cosine_theta2 = (math.pow(x,2) + math.pow(y,2) - math.pow(r1,2) - math.pow(r2,2))/ \
 				(2*r1*r2)
-	positions["left_e1"] = math.atan2(math.sqrt(1-math.pow(cosine_theta2,2) \
+
+	positions["left_e1"] = math.atan2(math.sqrt(abs(1-math.pow(cosine_theta2,2)) \
 						),cosine_theta2)
 	k1 = r1 + r2*math.cos(positions["left_e1"])
 	k2 = r2*math.sin(positions["left_e1"])
+	
 	positions["left_s1"] = math.atan2(y,x) - math.atan2(k2,k1) - s1_offset
 
 	# Keep w1 such that grip is vertical
