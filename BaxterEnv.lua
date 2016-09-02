@@ -1,10 +1,15 @@
 ros = require 'ros'
 ros.init('DQN_comms')
 local classic = require 'classic'
+require 'image'
 
-local Baxter, super = classic.class('Baxter', Env)
+local BaxterEnv, super = classic.class('BaxterEnv', Env)
+local BaxteEnv = {};
 
-resp_ready = false
+local resp_ready = false
+local raw_msg = torch.FloatTensor(14400)
+local task = 0
+local step = 1
 
 function connect_cb(name, topic)
   print("subscriber connected: " .. name .. " (topic: '" .. topic .. "')")
@@ -19,16 +24,15 @@ function sleep(n)
   os.execute("sleep " .. tonumber(n))
 end
 -- Constructor
-function Baxter:_init(opts)
+function BaxterEnv:_init(opts)
 	opts = opts or {}
 
 	--setup state variables
 	self.img_size = 60
 	self.screen = torch.FloatTensor(4,self.img_size,self.img_size):zero()
-	self.reordered_Data = torch.FloatTensor(14400)
-	self.raw_msg = self.reordered_Data
-	self.task = false
+	self.reordered_Data = raw_msg
 
+	
 	--setup ros node and spinner (processes queued send and receive topics)
 	self.spinner = ros.AsyncSpinner()
 	self.spinner:start()
@@ -44,17 +48,15 @@ function Baxter:_init(opts)
 	ros.spinOnce()
 
 	--create subscriber
-	self.timeout = 2.0
+	self.timeout = 20.0
 	self.img_subscriber = self.nodehandle:subscribe("baxter_view", self.image_spec, 		100, 		{ 'udp', 'tcp' }, { tcp_nodelay = true })
 	
 	--Received message callback
 	self.img_subscriber:registerCallback(function(msg, header)
 		local frame_id = msg.header.frame_id
-		-- get raw message data
-		self.raw_msg = msg.data
-		--self.msgToImg()
-		--Split reward frame id and terminal status (arrive in comma separated list)
-		self.task = tonumber(frame_id)	
+		-- get raw message data & task status (0 for incomplete 1 for complete)
+		raw_msg = msg.data
+		task = tonumber(frame_id)
 		resp_ready = true
 	end)
 	
@@ -63,7 +65,8 @@ function Baxter:_init(opts)
 	resp_ready = false
 end
 
-function Baxter:sendMessage(message)
+
+function BaxterEnv:sendMessage(message)
 	--Wait for a subscriber
 	local t = os.clock()
 	while self.publisher:getNumSubscribers() == 0 do
@@ -84,7 +87,7 @@ function Baxter:sendMessage(message)
 end
 
 -- Wait for response message to be recieved - sending message is blocking function
-function Baxter:waitForResponse(message)
+function BaxterEnv:waitForResponse(message)
 	local t = os.clock()
 	local tries = 1
 	while not resp_ready do 
@@ -108,94 +111,93 @@ function Baxter:waitForResponse(message)
 	return true
 end
 
-function Baxter:msgToImg()
+function BaxterEnv:msgToImg()
 		-- Sort message data - pixel values come through in order r[1], g[1], b[1], a[1], r[2], b[2], g[2], .. etc with the alpha channel representing motor angle information
 	for i = 1, 14400 do
 		if i%4==1 then
-			self.reordered_Data[(i+3)/4] = self.raw_msg[i]/255
+			self.reordered_Data[(i+3)/4] = raw_msg[i]/255
 		elseif i%4==2 then
-			self.reordered_Data[3600 + (i+2)/4] = self.raw_msg[i]/255
+			self.reordered_Data[3600 + (i+2)/4] = raw_msg[i]/255
 		elseif i%4 == 3 then
-			self.reordered_Data[7200 + (i+1)/4] = self.raw_msg[i]/255
+			self.reordered_Data[7200 + (i+1)/4] = raw_msg[i]/255
 		else
-			self.reordered_Data[10800 + i/4] = self.raw_msg[i]/255
+			self.reordered_Data[10800 + i/4] = raw_msg[i]/255
 		end
 	end
 	self.screen = torch.reshape(self.reordered_Data,4,self.img_size,self.img_size)
-	--self.screen = self.screen[{{1,3},{},{}}]
 end
 
 -- 1 state returned, of type 'int', of dimensionality 1 x self.img_size x self.img_size, between 0 and 1
-function Baxter:getStateSpec()
+function BaxterEnv:getStateSpec()
 	return {'int', {4, self.img_size, self.img_size}, {0, 1}}
 end
 
 -- 1 action required, of type 'int', of dimensionality 1, between 0 and 2
-function Baxter:getActionSpec()
-	return {'int', 1, {0, 2}}
+function BaxterEnv:getActionSpec()
+	return {'int', 1, {0, 6}}
 end
 
 -- RGB screen of size self.img_size x self.img_size
-function Baxter:getDisplaySpec()
+function BaxterEnv:getDisplaySpec()
 	return {'real', {3, self.img_size, self.img_size}, {0, 1}}
 end
 
 -- Min and max reward
-function Baxter:getRewardSpec()
+function BaxterEnv:getRewardSpec()
 	return 0, 1
 end
 
 
 -- Starts new game
-function Baxter:start()
+function BaxterEnv:start()
 	self:sendMessage("reset")
 	self:waitForResponse("reset")
 	sleep(0.1)
 	ros.spinOnce()
 	self:msgToImg()
 -- Return observation
-	print("start finished")
 	return self.screen
 end
 
 -- Steps in a game
-function Baxter:step(action)
+function BaxterEnv:step(action)
 	-- Reward is 0 by default
-	print("step started")
 	local reward = 0
-    local terminal = false
-	-- Move player - 0 and 1 correspond to right and left rotations 
-	-- 2 corresponds to an attempt at picking up the object
+	local terminal = false
+	-- Move player - 0 corresponds to picking up object
 	-- Task ends once an attempt to pick up the object is made
 	-- This is because unsuccesful attempts often knock the block away
 	-- making it impossible to pickup again
-	if action == 0 then
-		self:sendMessage('r')
-		self:waitForResponse('r')
-	elseif action == 1 then
-		self:sendMessage('l')
-		self:waitForResponse('l')
-	elseif action == 2 then
-		self:sendMessage('p')
-		self:waitForResponse('p')
+	-- 1-6 control +ve or -ve for 3DOF - shoulder, wrist and elbow
+	
+	if action == 0 or step == 40 then
 		terminal = true
+		step = 1
 	end
-	
+	-- Send action to gazebo
+	self:sendMessage(tostring(action))
+	self:waitForResponse(tostring(action))
 	-- get next message
-	ros.spinOnce()
 	self:msgToImg()
-	
 	-- Check task condition
-	if self.task == 1 then	
+	if task == 1 then	
   		reward = 1
-	end
+	end	
+	
+	step = step + 1
+	
 	return reward, self.screen, terminal
 end
 
 -- Returns (RGB) display of screen
-function Baxter:getDisplay()
+function BaxterEnv:getDisplay()
 	return torch.repeatTensor(self.screen, 3, 1, 1)
 end
 
-return Baxter
+function BaxterEnv:_close()
+	self.subscriber:shutdown()
+	ros.shutdown()
+end
+
+return BaxterEnv
 
