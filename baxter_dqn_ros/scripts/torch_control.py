@@ -15,6 +15,8 @@ from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image
 from gazebo_msgs.msg import ModelStates
+from gazebo_msgs.msg import ModelState
+from gazebo_msgs.srv import SetModelState
 
 from gazebo_msgs.srv import (
 SpawnModel,
@@ -42,16 +44,10 @@ def load_gazebo_models():
 	table_pose=Pose(position=Point(x=0.8, y=1.0, z=0.0))
 	table_reference_frame="world"
 	
-    # Randomise object type and orientation
-	object_angle= random.uniform(0,math.pi)
-	object_x_factor = random.uniform(-0.1,0.1)
-	object_y_factor = random.uniform(-0.1,0.1)
-	object_type = random.randint(0,2)
-    
-	object_pose=Pose(position=Point(x=0.625+object_x_factor, y=0.7975+object_y_factor,
-			 					z=0.8),orientation = \
-   						Quaternion(x=0.0,y=0.0,z=math.sin(object_angle/2),w= \
-   						math.cos(object_angle/2)))
+	object1_pose=Pose(position=Point(x=-3.0, y=0.0, z= 0.0))
+	object2_pose=Pose(position=Point(x=-3.5, y=0.0, z= 0.0))
+	object3_pose=Pose(position=Point(x=3.0, y=0.5, z= 0.0))
+	
 	object_reference_frame="world"
 	
 	model_path = rospkg.RosPack().get_path('baxter_dqn_ros')+"/models/"
@@ -61,17 +57,17 @@ def load_gazebo_models():
 	with open (model_path + "cafe_table/model.sdf", "r") as table_file:
 		table_xml=table_file.read().replace('\n', '')
 		
-	# Load object URDF
-	object_xml = ''
-	if object_type == 0:
-		with open (model_path + "block/model.urdf", "r") as object_file:
-			object_xml=object_file.read().replace('\n', '')
-	elif object_type == 1:
-		with open (model_path + "sphere/model.urdf", "r") as object_file:
-			object_xml=object_file.read().replace('\n', '')
-	else:
-		with open (model_path + "cylinder/model.urdf", "r") as object_file:
-			object_xml=object_file.read().replace('\n', '')
+	# Load objects URDF
+	object1_xml = ''
+	object2_xml = ''
+	object3_xml = ''
+	
+	with open (model_path + "block/model.urdf", "r") as object1_file:
+			object1_xml=object1_file.read().replace('\n', '')
+	with open (model_path + "sphere/model.urdf", "r") as object2_file:
+			object2_xml=object2_file.read().replace('\n', '')
+	with open (model_path + "cylinder/model.urdf", "r") as object3_file:
+			object3_xml=object3_file.read().replace('\n', '')
 
 	# Spawn Table SDF
 	rospy.wait_for_service('/gazebo/spawn_sdf_model')
@@ -86,12 +82,19 @@ def load_gazebo_models():
 	rospy.wait_for_service('/gazebo/spawn_urdf_model')
 	try:
 		spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
-		resp_urdf = spawn_urdf("object", object_xml, "/",
-				           object_pose, object_reference_frame)
+		resp_urdf = spawn_urdf("object1", object1_xml, "/",
+				           object1_pose, object_reference_frame)
+
+		spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
+		resp_urdf = spawn_urdf("object2", object2_xml, "/",
+				           object2_pose, object_reference_frame)
+				           
+		spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
+		resp_urdf = spawn_urdf("object3", object3_xml, "/",
+				           object3_pose, object_reference_frame)
 	except rospy.ServiceException, e:
 		rospy.logerr("Spawn URDF service call failed: {0}".format(e))
-
-
+  
 def delete_gazebo_models():
 	# This will be called on ROS Exit, deleting Gazebo models
 	# Do not wait for the Gazebo Delete Model service, since
@@ -114,6 +117,7 @@ class BaxterManipulator(object):
 		# Publishers
 		self._pub_rate = rospy.Publisher('robot/joint_state_publish_rate', UInt16, queue_size=10)
 		self.image_pub = rospy.Publisher("baxter_view",Image,queue_size=4)
+		self._obj_state  = rospy.ServiceProxy("/gazebo/set_model_state",SetModelState)
 		
 		#Link with baxter interface
 		self._left_arm = baxter_interface.limb.Limb("left")
@@ -133,8 +137,35 @@ class BaxterManipulator(object):
 		# set joint state publishing to 500Hz
 		self._pub_rate.publish(self._rate)
 		self._left_arm.set_joint_position_speed(0.3)
+		self._object_type = 0
 		
+	def position_gazebo_models(self):
+		modelstate = ModelState()
+		# return object to previous 
+		if self._object_type != 0:
+			modelstate.model_name = "object" + str(self._object_type)
+			modelstate.reference_frame = "world"
+			modelstate.pose = Pose(position=Point(x=-3.0, y=0.0, z= 0.0))
+			req = self._obj_state(modelstate)
+	
+		# Randomise object type and orientation
+		object_angle= random.uniform(0,math.pi)
+		object_x_factor = random.uniform(-0.1,0.1)
+		object_y_factor = random.uniform(-0.1,0.1)
+	
+		self._object_type = random.randint(1,3)
+		modelstate.model_name = "object" + str(self._object_type)
+		modelstate.reference_frame = "world"
 
+		object_pose=Pose(position=Point(x=0.625+object_x_factor, y=0.7975+object_y_factor,
+				 					z=0.8),orientation = \
+		 						Quaternion(x=0.0,y=0.0,z=math.sin(object_angle/2),w= \
+		 						math.cos(object_angle/2)))
+		
+		modelstate.pose=object_pose
+		req = self._obj_state(modelstate)
+		
+  
 	def _reset(self):
 		self.grip_left.open()
 		
@@ -149,7 +180,7 @@ class BaxterManipulator(object):
     
 		self._right_arm.move_to_joint_positions(self._right_positions)
 		self._left_arm.move_to_joint_positions(self._left_positions)
-		
+		self.position_gazebo_models()
 		# Task completion flag
 		self._task_complete = 0
 		
@@ -203,8 +234,8 @@ class BaxterManipulator(object):
 		
   	# Recieve object pose information - used to determine whether task has been completed		
 	def object_pose_callback(self,data):
-		if 'object' in data.name:
-			index = data.name.index('object')
+		if self._object_type !=0:
+			index = data.name.index('object'+str(self._object_type))
 			self.object_position_x = data.pose[index].position.x
 			self.object_position_y = data.pose[index].position.y
 			self.object_position_z = data.pose[index].position.z
@@ -275,8 +306,6 @@ class BaxterManipulator(object):
 		# Reset command - waits to be told by torch to reset to ensure torch has recieved terminal status
 		elif self.cmd == 'reset':
 		#	print("resetting")
-			delete_gazebo_models()
-			load_gazebo_models()
 			self._reset()
 		# Publish image with terminal in header
 		# Create image message
