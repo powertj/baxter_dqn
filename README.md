@@ -45,3 +45,7 @@ The origin of the objects is not always at their centre. This results in some va
 
 ## Acknowledgements
 [Kai Arulkumaran](https://github.com/Kaixhin) for his assistance
+
+## Reference 
+Network architecture based on:
+[Learning Hand-Eye Coordination for Robotic Grasping with Deep Learning and Large-Scale Data Collection](https://arxiv.org/abs/1603.02199) Sergey Levine et al. 2016
