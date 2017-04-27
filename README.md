@@ -5,9 +5,9 @@ Reinforcement learning in a simulated environment for the control of Baxter robo
 
 `BaxterEnv.lua` interfaces with the Atari DQN to provide a custom environment conforming to the following [API](https://github.com/Kaixhin/rlenvs). Passes a resized 4x60x60 tensor from the simulator into the DQN, consisting of an RGB image and a 4th channel containing motor position information, and in return passes commands back to simulator. 
 
-Either a sphere, cylinder or box is spawned at a random orientation at start and reset. The baxter robot currently has three available actions - a right and left rotation at the wrist, and an attempt to pick up an object. 
+A coloured sphere, cylinder or box is spawned at a random orientation at start and reset. The baxter robot attempts to navigate it's arm to pick up the object. Currently movement on the arm is limited to a rotation at the wrist and shoulder, as well as the ability to extend the reach while forcing the gripper to be facing downwards. 
 
-An attempt to pickup the object results in termination, as unsuccessful attempts often throw the object out of reach. The success of the task is gauged by checking that the pose of the object is approxiamtely the pose of the end-effector at the end of the pickup action. At termination the environment is reset.
+An attempt to pickup the object results in termination, as unsuccessful attempts often throw the object out of reach. The success of the task is gauged by checking that the pose of the object is approxiamtely the pose of the end-effector at the end of the pickup action. A partial reward is given if the robot comes into contact with the object. At termination the environment is reset.
 
 ## Requirements
 - ROS indigo w gazebo2
