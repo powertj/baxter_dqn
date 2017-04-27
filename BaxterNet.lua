@@ -6,21 +6,25 @@ local Body = classic.class('Body')
 
 -- Architecture based on "Learning Hand-Eye Coordination for Robotic Grasping with Deep Learning and Large-Scale Data Collection"
 
-local histLen = 4
 local numFilters = 64
 local motorInputs = 6
-local batchSize = 32
 local size = 60
+local histLen = 0
+local batchSize = 32
 
-local data = torch.FloatTensor(batchSize, histLen, 4, size, size):uniform() -- Minibatch
-data[{{}, {}, {4}, {}, {}}]:zero() -- Zero motor inputs
-data[{{}, {}, {4}, {1}, {1, motorInputs}}] = 2 -- 3 motor inputs
 
-function Body:_init(opts)
-  opts = opts or {}
+function Body:_init(opt)
+  opt = opt or {}
+  histLen   = opt.histLen
 end
 
+	
 function Body:createBody()
+	
+ 	local data = torch.FloatTensor(batchSize, histLen, 4, size, size):uniform() -- Minibatch
+	data[{{}, {}, {4}, {}, {}}]:zero() -- Zero motor inputs
+	data[{{}, {}, {4}, {1}, {1, motorInputs}}] = 2 -- 3 motor inputs
+ 
 	local imageNet = nn.Sequential()
 	imageNet:add(nn.Narrow(3, 1, 3)) -- Extract 1st 3 (RGB) channels
 	imageNet:add(nn.View(histLen * 3, size, size):setNumInputDims(4)) -- Concatenate in time
