@@ -162,28 +162,32 @@ end
 -- Steps in a game
 function BaxterEnv:step(action)
 	-- Reward is 0 by default
-	local reward = 0
+	local reward = -0.025
 	local terminal = false
 	-- Move player - 0 corresponds to picking up object
 	-- Task ends once an attempt to pick up the object is made
 	-- This is because unsuccesful attempts often knock the block away
 	-- making it impossible to pickup again
 	-- 1-6 control +ve or -ve for 3DOF - shoulder, wrist and elbow
-	
+	self:sendMessage(tostring(action))
+
 	if action == 0 or step == 40 then
+		sleep(0.1)
 		terminal = true
 		step = 1
+		reward = -1
 	end
 	-- Send action to gazebo
-	self:sendMessage(tostring(action))
 	self:waitForResponse(tostring(action))
 	-- get next message
 	self:msgToImg()
 	-- Check task condition
 	if task == 1 then	
+  		reward = 10
+  elseif task == 2 then
   		reward = 1
 	end	
-	
+
 	step = step + 1
 	
 	return reward, self.screen, terminal
