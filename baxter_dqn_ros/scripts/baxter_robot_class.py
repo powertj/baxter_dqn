@@ -97,9 +97,7 @@ class BaxterManipulator(object):
 		randomRightArray = [random.uniform( -randomFactor, randomFactor ) for i in range(0,7)]
 		randomLeftArray  = [random.uniform( -randomFactor, randomFactor ) for i in range(0,7)]
 	
-		rest_pos_right = [math.pi/3.0, -0.55, math.pi/4.0, math.pi/8.0 + 0.75,
-												0.0, 1.26 - math.pi/4.0, 0.0]	
-											
+		rest_pos_right = [math.pi/3.0, -0.55, math.pi/4.0, math.pi/8.0 + 0.75, 0.0, 1.26 - math.pi/4.0, 0.0]										
 		rest_pos_left  = [0.0, -0.55, 0.0, 0.75, 0.0, math.pi/2.0 - 0.2, 0.0]
 		
 		rest_pos_right[:] = [x+y for x, y in zip( rest_pos_right, randomRightArray )] 
@@ -113,8 +111,7 @@ class BaxterManipulator(object):
 		rest_pos_right, rest_pos_left = self.get_start_positions( 0.05 ) 
           
 		# Set positions
-		self._right_positions = dict(zip(self._right_arm.joint_names(), 
-																rest_pos_right))               
+		self._right_positions = dict(zip(self._right_arm.joint_names(), rest_pos_right))               
 		self._left_positions = dict(zip(self._left_arm.joint_names(), rest_pos_left))            
 		self._torques = dict(zip(self._left_arm.joint_names(), [0.0]*7 ))
     
@@ -267,8 +264,7 @@ class BaxterManipulator(object):
 			raise ValueError("Invalid movement")
 
 		# Adjustment to ensure gripper is verticle
-		self._left_positions["left_w1"] = math.pi/2.0 - self._left_positions["left_e1"] -  \
-																				self._left_positions["left_s1"]
+		self._left_positions["left_w1"] = math.pi/2.0 - self._left_positions["left_e1"] - self._left_positions["left_s1"]
 		self._pub_rate.publish(self._rate)	
 		self._left_arm.set_joint_positions(self._left_positions)
 
