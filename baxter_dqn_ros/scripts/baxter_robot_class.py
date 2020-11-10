@@ -15,16 +15,9 @@ from gazebo_msgs.msg import ModelStates
 from gazebo_msgs.msg import ModelState
 from gazebo_msgs.srv import SetModelState
 
-from std_msgs.msg import (
-UInt16,
-String,
-)
+from std_msgs.msg import UInt16, String
 
-from geometry_msgs.msg import (
-Pose,
-Point,
-Quaternion,
-)
+from geometry_msgs.msg import Pose, Point, Quaternion
 
 import baxter_interface
 from baxter_interface import CHECK_VERSION
@@ -59,7 +52,7 @@ class BaxterManipulator(object):
 		self._left_arm.set_joint_position_speed(0.3)
 		self._object_type = 0
 		
-	def position_gazebo_models( self ):
+	def position_gazebo_models(self):
 		modelstate = ModelState()
 		# return object to previous 
 		if self._object_type != 0:
@@ -91,24 +84,24 @@ class BaxterManipulator(object):
 		req = self._obj_state(modelstate)
 		
 		
-	def get_start_positions( self, randomFactor ):
+	def get_start_positions(self, randomFactor):
 		# Function to return start positions - right arm set to give view over object
 		# Slight randomisation in start positions
-		randomRightArray = [random.uniform( -randomFactor, randomFactor ) for i in range(0,7)]
-		randomLeftArray  = [random.uniform( -randomFactor, randomFactor ) for i in range(0,7)]
+		randomRightArray = [random.uniform(-randomFactor, randomFactor) for i in range(0,7)]
+		randomLeftArray  = [random.uniform(-randomFactor, randomFactor) for i in range(0,7)]
 	
 		rest_pos_right = [math.pi/3.0, -0.55, math.pi/4.0, math.pi/8.0 + 0.75, 0.0, 1.26 - math.pi/4.0, 0.0]										
 		rest_pos_left  = [0.0, -0.55, 0.0, 0.75, 0.0, math.pi/2.0 - 0.2, 0.0]
 		
-		rest_pos_right[:] = [x+y for x, y in zip( rest_pos_right, randomRightArray )] 
-		rest_pos_left[:]  = [x+y for x, y in zip( rest_pos_left, randomLeftArray )]  
+		rest_pos_right[:] = [x+y for x, y in zip(rest_pos_right, randomRightArray)] 
+		rest_pos_left[:]  = [x+y for x, y in zip(rest_pos_left, randomLeftArray)]  
 		
 		return rest_pos_right, rest_pos_left
   
 	def _reset(self):
 		self.grip_left.open()
 		
-		rest_pos_right, rest_pos_left = self.get_start_positions( 0.05 ) 
+		rest_pos_right, rest_pos_left = self.get_start_positions(0.05) 
           
 		# Set positions
 		self._right_positions = dict(zip(self._right_arm.joint_names(), rest_pos_right))               
@@ -190,7 +183,7 @@ class BaxterManipulator(object):
 		rospy.spin()
 
         ''' Action functions '''
-	def move_vertical( self, direction ):
+	def move_vertical(self, direction):
 
 		# Limb Lengths
 		r1 = 0.37082 
@@ -231,18 +224,18 @@ class BaxterManipulator(object):
 		self._pub_rate.publish(self._rate)
 		self._left_arm.move_to_joint_positions(self._left_positions)
 
-	def rotate_wrist( self, direction ):
+	def rotate_wrist(self, direction):
 		if direction == "right":
-				self._left_positions["left_w2"] += 0.2
+			self._left_positions["left_w2"] += 0.2
 		elif direction == "left":
-				self._left_positions["left_w2"] -= 0.2
+			self._left_positions["left_w2"] -= 0.2
 		else:
-				raise ValueError("Invalid movement")
+			raise ValueError("Invalid movement")
                 
 		self._pub_rate.publish(self._rate)
 		self._left_arm.set_joint_positions(self._left_positions)
 
-	def rotate_shoulder( self, direction ):
+	def rotate_shoulder(self, direction):
  		if direction == "right":
 			self._left_positions["left_s0"] += 0.025
 		elif direction == "left":
@@ -253,7 +246,7 @@ class BaxterManipulator(object):
 		self._pub_rate.publish(self._rate)
 		self._left_arm.set_joint_positions(self._left_positions)
 
-	def adjust_reach( self, direction ):
+	def adjust_reach(self, direction):
 		if direction == "forward":
 			self._left_positions["left_e1"] -= 0.05
 			self._left_positions["left_s1"] += 0.05
@@ -268,7 +261,7 @@ class BaxterManipulator(object):
 		self._pub_rate.publish(self._rate)	
 		self._left_arm.set_joint_positions(self._left_positions)
 
-	def pick_up_object( self ):
+	def pick_up_object(self):
 		self.move_vertical("d")
 		time.sleep(0.2)
 		self.grip_left.close()
@@ -292,7 +285,7 @@ class BaxterManipulator(object):
 		elif self.object_v != 0:
 			self._task_complete = 2
                                 
-	def action( self ):
+	def action(self):
        
 		if self.cmd == "1":
 			self.rotate_wrist("right")
